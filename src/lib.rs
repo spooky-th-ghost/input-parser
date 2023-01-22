@@ -237,12 +237,51 @@ fn match_literal<'a>(expected: &'static str) -> impl Parser<'a, ()> {
 #[derive(Debug, Eq, PartialEq)]
 enum CommandMotion {
     Dash,
-    BackDash,
+    Backdash,
     Qcf,
     Qcb,
     Dp,
     Rdp,
     TwoTwo,
+}
+
+fn dash<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '6')),
+            repeat_x_times(match_literal("6"), 10),
+        ),
+        pair(repeat_x_times(match_literal("5"), 6), match_literal("6")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Dash)
+}
+
+#[test]
+fn dash_test() {
+    let find_it = dash();
+    assert_eq!(find_it.parse("556666655556"), Ok(("", CommandMotion::Dash)));
+    assert_eq!(find_it.parse("555555555551111136"), Err(""));
+}
+
+fn backdash<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '4')),
+            repeat_x_times(match_literal("4"), 10),
+        ),
+        pair(repeat_x_times(match_literal("5"), 6), match_literal("4")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Backdash)
+}
+
+#[test]
+fn backdash_test() {
+    let find_it = backdash();
+    assert_eq!(
+        find_it.parse("55444455554"),
+        Ok(("", CommandMotion::Backdash))
+    );
+    assert_eq!(find_it.parse("555555555551111136"), Err(""));
 }
 
 fn qcf<'a>() -> impl Parser<'a, CommandMotion> {
@@ -256,6 +295,16 @@ fn qcf<'a>() -> impl Parser<'a, CommandMotion> {
     .map(|(_next_input, _result)| CommandMotion::Qcf)
 }
 
+#[test]
+fn qcf_test() {
+    let find_it = qcf();
+    assert_eq!(
+        find_it.parse("555555555552222233336"),
+        Ok(("", CommandMotion::Qcf))
+    );
+    assert_eq!(find_it.parse("555555555551111136"), Err(""));
+}
+
 fn qcb<'a>() -> impl Parser<'a, CommandMotion> {
     pair(
         pair(
@@ -267,6 +316,16 @@ fn qcb<'a>() -> impl Parser<'a, CommandMotion> {
     .map(|(_next_input, _result)| CommandMotion::Qcb)
 }
 
+#[test]
+fn qcb_test() {
+    let find_it = qcb();
+    assert_eq!(
+        find_it.parse("555555555552222211114"),
+        Ok(("", CommandMotion::Qcb))
+    );
+    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
+}
+
 fn dp<'a>() -> impl Parser<'a, CommandMotion> {
     pair(
         pair(
@@ -276,6 +335,16 @@ fn dp<'a>() -> impl Parser<'a, CommandMotion> {
         pair(repeat_x_times(match_literal("2"), 5), match_literal("3")),
     )
     .map(|(_next_input, _result)| CommandMotion::Dp)
+}
+
+#[test]
+fn dp_test() {
+    let find_it = dp();
+    assert_eq!(
+        find_it.parse("55555555555666622223"),
+        Ok(("", CommandMotion::Dp))
+    );
+    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
 }
 
 fn rdp<'a>() -> impl Parser<'a, CommandMotion> {
@@ -290,36 +359,6 @@ fn rdp<'a>() -> impl Parser<'a, CommandMotion> {
 }
 
 #[test]
-fn qcf_test() {
-    let find_it = qcf();
-    assert_eq!(
-        find_it.parse("555555555552222233336"),
-        Ok(("", CommandMotion::Qcf))
-    );
-    assert_eq!(find_it.parse("555555555551111136"), Err(""));
-}
-
-#[test]
-fn qcb_test() {
-    let find_it = qcb();
-    assert_eq!(
-        find_it.parse("555555555552222211114"),
-        Ok(("", CommandMotion::Qcb))
-    );
-    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
-}
-
-#[test]
-fn dp_test() {
-    let find_it = dp();
-    assert_eq!(
-        find_it.parse("55555555555666622223"),
-        Ok(("", CommandMotion::Dp))
-    );
-    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
-}
-
-#[test]
 fn rdp_test() {
     let find_it = rdp();
     assert_eq!(
@@ -327,4 +366,22 @@ fn rdp_test() {
         Ok(("", CommandMotion::Rdp))
     );
     assert_eq!(find_it.parse("55555555511111133336"), Err(""));
+}
+
+fn two_two<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '2')),
+            repeat_x_times(match_literal("2"), 10),
+        ),
+        pair(repeat_x_times(match_literal("5"), 6), match_literal("2")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::TwoTwo)
+}
+
+#[test]
+fn two_two_test() {
+    let find_it = two_two();
+    assert_eq!(find_it.parse("5522255552"), Ok(("", CommandMotion::TwoTwo)));
+    assert_eq!(find_it.parse("555555555551111136"), Err(""));
 }
