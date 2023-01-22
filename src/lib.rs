@@ -243,6 +243,32 @@ enum CommandMotion {
     Dp,
     Rdp,
     TwoTwo,
+    DoubleQcf,
+}
+
+fn double_qcf<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        qcf(),
+        pair(
+            pair(
+                repeat_x_times(any_char.pred(|c| *c != '2'), 5),
+                repeat_x_times(match_literal("2"), 8),
+            ),
+            pair(repeat_x_times(match_literal("3"), 5), match_literal("6")),
+        ),
+    )
+    .map(|(_, _)| CommandMotion::DoubleQcf)
+}
+
+#[test]
+fn double_qcf_test() {
+    let find_it = double_qcf();
+    assert_eq!(
+        find_it.parse("55522233366552223336"),
+        Ok(("", CommandMotion::DoubleQcf))
+    );
+
+    assert_eq!(find_it.parse("555222333665555552223336"), Err("552223336"));
 }
 
 fn dash<'a>() -> impl Parser<'a, CommandMotion> {
