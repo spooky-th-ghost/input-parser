@@ -147,7 +147,7 @@ where
     map(pair(parser1, parser2), |(_left, right)| right)
 }
 
-fn one_or_more<'a, P, A>(parser: P, range: RangeBounds) -> impl Parser<'a, Vec<A>>
+fn one_or_more<'a, P, A>(parser: P) -> impl Parser<'a, Vec<A>>
 where
     P: Parser<'a, A>,
 {
@@ -164,6 +164,32 @@ where
         while let Ok((next_input, next_item)) = parser.parse(input) {
             input = next_input;
             result.push(next_item);
+        }
+
+        Ok((input, result))
+    }
+}
+
+fn repeat_x_times<'a, P, A>(parser: P, upper_bound: usize) -> impl Parser<'a, Vec<A>>
+where
+    P: Parser<'a, A>,
+{
+    move |mut input| {
+        let mut result = Vec::new();
+
+        if let Ok((next_input, first_item)) = parser.parse(input) {
+            input = next_input;
+            result.push(first_item);
+        } else {
+            return Err(input);
+        }
+
+        'primary: while let Ok((next_input, next_item)) = parser.parse(input) {
+            input = next_input;
+            result.push(next_item);
+            if result.len() == upper_bound {
+                break 'primary;
+            }
         }
 
         Ok((input, result))
@@ -206,4 +232,99 @@ fn match_literal<'a>(expected: &'static str) -> impl Parser<'a, ()> {
         Some(next) if next == expected => Ok((&input[expected.len()..], ())),
         _ => Err(input),
     }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum CommandMotion {
+    Dash,
+    BackDash,
+    Qcf,
+    Qcb,
+    Dp,
+    Rdp,
+    TwoTwo,
+}
+
+fn qcf<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '2')),
+            repeat_x_times(match_literal("2"), 8),
+        ),
+        pair(repeat_x_times(match_literal("3"), 5), match_literal("6")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Qcf)
+}
+
+fn qcb<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '2')),
+            repeat_x_times(match_literal("2"), 8),
+        ),
+        pair(repeat_x_times(match_literal("1"), 5), match_literal("4")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Qcb)
+}
+
+fn dp<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '6')),
+            repeat_x_times(match_literal("6"), 8),
+        ),
+        pair(repeat_x_times(match_literal("2"), 5), match_literal("3")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Dp)
+}
+
+fn rdp<'a>() -> impl Parser<'a, CommandMotion> {
+    pair(
+        pair(
+            zero_or_more(any_char.pred(|c| *c != '4')),
+            repeat_x_times(match_literal("4"), 8),
+        ),
+        pair(repeat_x_times(match_literal("2"), 5), match_literal("1")),
+    )
+    .map(|(_next_input, _result)| CommandMotion::Rdp)
+}
+
+#[test]
+fn qcf_test() {
+    let find_it = qcf();
+    assert_eq!(
+        find_it.parse("555555555552222233336"),
+        Ok(("", CommandMotion::Qcf))
+    );
+    assert_eq!(find_it.parse("555555555551111136"), Err(""));
+}
+
+#[test]
+fn qcb_test() {
+    let find_it = qcb();
+    assert_eq!(
+        find_it.parse("555555555552222211114"),
+        Ok(("", CommandMotion::Qcb))
+    );
+    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
+}
+
+#[test]
+fn dp_test() {
+    let find_it = dp();
+    assert_eq!(
+        find_it.parse("55555555555666622223"),
+        Ok(("", CommandMotion::Dp))
+    );
+    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
+}
+
+#[test]
+fn rdp_test() {
+    let find_it = rdp();
+    assert_eq!(
+        find_it.parse("55555666644422221"),
+        Ok(("", CommandMotion::Rdp))
+    );
+    assert_eq!(find_it.parse("55555555511111133336"), Err(""));
 }
